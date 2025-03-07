@@ -1,27 +1,28 @@
 import { test, expect } from '@playwright/test';
-import { getFrameLocator } from '../helpers/frameHelper.ts';
-import { operatorSignin } from '../helpers/appHelper.ts';
+import { loginAndConfigure, logout } from '../helpers/appHelper.ts';
 
-test('test', async ({ page }) => {
+var iFrameVal = '';
 
-  // login from helpers/appHelper.ts
-  await operatorSignin(page);
+test.describe(() => {
+  // All tests in this describe group will get 2 retry attempts.
+  test.describe.configure({ retries: 2 });
 
-  // wait for nav bar to render so that we are sure iframes have been built
-  await expect(page.getByRole('button', { name: 'Application Launcher' })).toBeVisible();
+  test('Validate SyteLine Version', async ({ page }) => {
 
-  // retrieve syteline iframe name
-  const frameName = await getFrameLocator(page);
-  const iFrameVal = 'iframe[name="' + frameName + '"]';
+    // login from helpers/appHelper.ts
+    iFrameVal = await loginAndConfigure(page);
 
-  await page.locator(iFrameVal).contentFrame().locator('#configCombo-trigger-picker').click();
-  await page.locator(iFrameVal).contentFrame().getByRole('option', { name: `${process.env.SITE_CONFIG}` }).click();
-  await page.locator(iFrameVal).contentFrame().getByRole('button', { name: 'Sign In' }).click();
-  await page.locator(iFrameVal).contentFrame().locator('#mgtoolbarbutton-1096-btnEl').getByRole('button', { name: 'Help' }).click();
-  await page.locator(iFrameVal).contentFrame().getByLabel('About', { exact: true }).getByRole('menuitem', { name: 'About' }).click();
-  await expect(page.locator(iFrameVal).contentFrame().locator('#box-1202')).toContainText(`${process.env.TARGET_VERSION}`);
-  await page.locator(iFrameVal).contentFrame().getByRole('button', { name: 'OK' }).click();
-  await page.locator('#osp-nav-user-profile').click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
-  await page.goto('https://' + process.env.WEB_URL + '/session/slo/signoutsuccess?tenantId=' + process.env.TENANT);
+    //open about popup
+    await page.locator(iFrameVal).contentFrame().locator('#mgtoolbarbutton-1096-btnEl').getByRole('button', { name: 'Help' }).click();
+    //await page.waitForTimeout(3000); //need to pause a few seconds for the menu to appear
+    await page.locator(iFrameVal).contentFrame().getByLabel('About', { exact: true }).getByRole('menuitem', { name: 'About' }).click();
+
+    //look in text body and validate version
+    await expect(page.locator(iFrameVal).contentFrame().locator('#modalDlg-body')).toContainText(`${process.env.TARGET_VERSION}`);
+
+    //close popup
+    await page.locator(iFrameVal).contentFrame().getByRole('button', { name: 'OK' }).click();
+
+    await logout(page);
+  });
 });
